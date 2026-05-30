@@ -94,7 +94,10 @@ fi
 # Let's Encrypt accederá a http://${DOMAIN}/.well-known/acme-challenge/<token>
 echo "[4/6] Arrancando Nginx para el challenge ACME..."
 
-docker compose up -d nginx
+# --no-deps: arranca SOLO nginx, sin sus dependencias (mlflow, postgres, minio).
+# En este paso solo necesitamos que nginx sirva el challenge ACME en el puerto 80.
+# El stack completo arranca en el paso 6.
+docker compose up -d --no-deps nginx
 
 # Esperar a que Nginx responda en el puerto 80
 MAX_WAIT=30

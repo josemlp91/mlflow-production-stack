@@ -22,13 +22,10 @@ EOF
 
 export MLFLOW_AUTH_CONFIG_PATH=/tmp/basic_auth.ini
 
-# ── Ejecutar migraciones de base de datos ────────────────────────────────────
-# Idempotente: aplica los cambios de esquema pendientes sin afectar datos existentes.
-# Es necesario ejecutarlo antes de arrancar el servidor al actualizar MLflow.
-echo "Running database migrations..."
-mlflow db upgrade "${MLFLOW_BACKEND_STORE_URI}"
-
 # ── Arrancar el servidor MLflow ──────────────────────────────────────────────
+# El servidor inicializa el esquema de BD y aplica migraciones internamente.
+# No usar "mlflow db upgrade" en instalaciones nuevas: causa conflictos de orden
+# en las migraciones de alembic cuando la BD está vacía.
 echo "Starting MLflow tracking server..."
 exec mlflow server \
     --host 0.0.0.0 \

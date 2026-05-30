@@ -1,0 +1,17 @@
+# Variables de entorno con credenciales reales — nunca subir al repositorio
+.env
+
+# Certificados TLS generados por Let's Encrypt y claves privadas
+certbot/
+
+# Directorios de datos de volúmenes Docker (generados en el servidor)
+data/
+
+# Backups de PostgreSQL
+backups/
+
+# Logs
+*.log
+
+# Ficheros temporales del sistema
+.DS_Store

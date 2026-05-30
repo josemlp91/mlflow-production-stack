@@ -1,35 +1,18 @@
 #!/bin/bash
 # ──────────────────────────────────────────────────────────────────────────────
-# renew-certs.sh — Renovación de certificados TLS de Let's Encrypt
+# renew-certs.sh — Información sobre renovación de certificados TLS
 #
-# Usa el método webroot: Nginx sirve el challenge ACME desde nginx/certbot/www/
-# sin necesidad de detener el servidor.
+# Este stack usa Coolify como proxy (Traefik). Coolify gestiona los certificados
+# Let's Encrypt automáticamente: los obtiene la primera vez que se accede al
+# dominio y los renueva antes de que caduquen sin intervención manual.
 #
-# Certbot renueva automáticamente solo si el certificado expira en < 30 días,
-# por lo que es seguro ejecutar este script con mayor frecuencia.
+# No es necesario ejecutar este script ni configurar ningún crontab.
 #
-# Configuración de crontab recomendada (ejecutar como root o el usuario del deploy):
-#   0 3 * * * /ruta/al/proyecto/scripts/renew-certs.sh >> /var/log/certbot-renew.log 2>&1
-#
-# Uso: ./scripts/renew-certs.sh
+# Si necesitas forzar la renovación o ver el estado de los certificados,
+# hazlo desde el panel de Coolify: Settings → SSL Certificates
 # ──────────────────────────────────────────────────────────────────────────────
 
-set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-cd "$PROJECT_DIR"
-
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Iniciando renovación de certificados..."
-
-# Intentar renovación (certbot decide si es necesario renovar o no)
-docker compose --profile certbot run --rm certbot renew \
-    --webroot \
-    --webroot-path /var/www/certbot \
-    --quiet
-
-# Recargar Nginx para que cargue los nuevos certificados si se renovaron
-# nginx -s reload es una recarga en caliente: no hay downtime
-docker compose exec nginx nginx -s reload
-
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Renovación completada y Nginx recargado."
+echo "Los certificados TLS son gestionados automáticamente por Coolify (Traefik)."
+echo "No es necesaria ninguna acción manual."
+echo ""
+echo "Para ver el estado: panel de Coolify → Settings → SSL Certificates"

@@ -6,8 +6,10 @@
 #   minio       — Almacenamiento de artefactos S3-compatible (modelos, plots)
 #   minio-init  — Contenedor de inicialización: crea el bucket en el primer arranque
 #   mlflow      — Servidor de tracking con autenticación nativa multi-usuario
-#   nginx       — Reverse proxy con terminación TLS (Let's Encrypt)
-#   certbot     — Gestión de certificados (perfil manual, no arranca con "up")
+#
+# TLS y routing: gestionados por Coolify (Traefik). No se incluye nginx ni certbot.
+# Los labels de Traefik en el servicio mlflow indican a Coolify qué dominio
+# enrutar y qué certificado TLS obtener automáticamente.
 #
 # Uso:
 #   Primera vez:    ./scripts/setup.sh
@@ -117,42 +119,20 @@ services:
       MLFLOW_FLASK_SERVER_SECRET_KEY: ${MLFLOW_SECRET_KEY}
     networks:
       - mlflow_net
-
-  # ── Nginx (reverse proxy + TLS) ─────────────────────────────────────────────
-  nginx:
-    image: nginx:1.27-alpine
-    container_name: mlflow_nginx
-    restart: unless-stopped
-    depends_on:
-      mlflow:
-        condition: service_healthy
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      # Configuración de Nginx (solo lectura)
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      # Webroot para el challenge ACME de Let's Encrypt
-      - ./nginx/certbot/www:/var/www/certbot:ro
-      # Certificados TLS generados por Certbot (solo lectura en Nginx)
-      - ./certbot/conf:/etc/letsencrypt:ro
-    networks:
-      - mlflow_net
-
-  # ── Certbot (gestión de certificados Let's Encrypt) ─────────────────────────
-  # Perfil "certbot": este servicio NO arranca con "docker compose up".
-  # Se usa exclusivamente desde los scripts:
-  #   - Primera vez:  ./scripts/setup.sh
-  #   - Renovación:   ./scripts/renew-certs.sh
-  certbot:
-    image: certbot/certbot:latest
-    container_name: mlflow_certbot
-    volumes:
-      # Certbot necesita escritura para guardar/renovar los certificados
-      - ./certbot/conf:/etc/letsencrypt
-      - ./nginx/certbot/www:/var/www/certbot
-    profiles:
-      - certbot
+      # Conectar a la red de Coolify para que Traefik pueda enrutar el tráfico
+      - coolify
+    labels:
+      # Activar Traefik para este servicio
+      - traefik.enable=true
+      # Enrutar el dominio a este contenedor
+      - traefik.http.routers.mlflow.rule=Host(`${DOMAIN}`)
+      # Usar el entrypoint HTTPS de Traefik (puerto 443)
+      - traefik.http.routers.mlflow.entrypoints=https
+      # Activar TLS con el resolver de Let's Encrypt de Coolify
+      - traefik.http.routers.mlflow.tls=true
+      - traefik.http.routers.mlflow.tls.certresolver=letsencrypt
+      # Puerto interno al que Traefik hace proxy dentro del contenedor
+      - traefik.http.services.mlflow.loadbalancer.server.port=5000
 
 # ── Volúmenes persistentes ──────────────────────────────────────────────────
 volumes:
@@ -161,9 +141,11 @@ volumes:
   minio_data:
     driver: local
 
-# ── Red interna ─────────────────────────────────────────────────────────────
-# Todos los servicios se comunican en esta red privada.
-# Solo Nginx expone puertos al exterior (80 y 443).
+# ── Redes ───────────────────────────────────────────────────────────────────
 networks:
+  # Red interna del stack (postgres, minio y mlflow se comunican aquí)
   mlflow_net:
     driver: bridge
+  # Red externa de Coolify — Traefik descubre los contenedores conectados a ella
+  coolify:
+    external: true

@@ -3,13 +3,13 @@
 # setup.sh — Configuración inicial del MLflow Production Stack
 #
 # Ejecutar UNA SOLA VEZ en el servidor tras clonar el repositorio.
+# El TLS y el certificado Let's Encrypt los gestiona Coolify automáticamente
+# a través de su proxy Traefik — no es necesario ningún paso manual de certbot.
+#
 # Pasos que realiza:
-#   1. Verifica prerequisitos (docker, openssl)
+#   1. Verifica prerequisitos (docker, docker compose)
 #   2. Valida que .env esté configurado correctamente
-#   3. Crea un certificado TLS autofirmado temporal para que Nginx pueda arrancar
-#   4. Arranca Nginx para servir el challenge ACME de Let's Encrypt
-#   5. Obtiene el certificado real de Let's Encrypt (método webroot)
-#   6. Arranca el stack completo
+#   3. Arranca el stack completo
 #
 # Uso: ./scripts/setup.sh
 # ──────────────────────────────────────────────────────────────────────────────
@@ -22,21 +22,22 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_DIR"
 
 # ── 1. Verificar prerequisitos ────────────────────────────────────────────────
-echo "[1/6] Verificando prerequisitos..."
+echo "[1/3] Verificando prerequisitos..."
 
 command -v docker >/dev/null 2>&1 \
-    || { echo "ERROR: Docker no está instalado. Instálalo desde https://docs.docker.com/engine/install/"; exit 1; }
+    || { echo "ERROR: Docker no está instalado."; exit 1; }
 
 docker compose version >/dev/null 2>&1 \
-    || { echo "ERROR: Docker Compose v2 no está disponible. Actualiza Docker Desktop o instala el plugin."; exit 1; }
+    || { echo "ERROR: Docker Compose v2 no está disponible."; exit 1; }
 
-command -v openssl >/dev/null 2>&1 \
-    || { echo "ERROR: openssl no está instalado (necesario para el certificado temporal)."; exit 1; }
+# Verificar que la red de Coolify existe (necesaria para que Traefik enrute el tráfico)
+docker network inspect coolify >/dev/null 2>&1 \
+    || { echo "ERROR: La red 'coolify' no existe. ¿Está Coolify instalado en este servidor?"; exit 1; }
 
 echo "  OK"
 
 # ── 2. Validar configuración .env ─────────────────────────────────────────────
-echo "[2/6] Validando configuración..."
+echo "[2/3] Validando configuración..."
 
 if [ ! -f .env ]; then
     cp .env.example .env
@@ -54,7 +55,7 @@ set +a
 
 # Verificar que no queden valores por defecto sin cambiar
 REQUIRED_VARS=(
-    DOMAIN CERTBOT_EMAIL
+    DOMAIN
     POSTGRES_PASSWORD
     MLFLOW_ADMIN_USERNAME MLFLOW_ADMIN_PASSWORD MLFLOW_SECRET_KEY
     MINIO_ROOT_PASSWORD
@@ -68,80 +69,15 @@ for var in "${REQUIRED_VARS[@]}"; do
     fi
 done
 
+mkdir -p backups
+
 echo "  OK"
 
-# ── 3. Crear certificado TLS autofirmado temporal ─────────────────────────────
-# Nginx necesita que los ficheros de certificado existan para arrancar.
-# Usamos un certificado autofirmado de 1 día como placeholder hasta obtener
-# el certificado real de Let's Encrypt en el paso siguiente.
-echo "[3/6] Creando certificado TLS temporal..."
-
-CERT_DIR="./certbot/conf/live/${DOMAIN}"
-mkdir -p "$CERT_DIR" nginx/certbot/www backups
-
-if [ ! -f "${CERT_DIR}/fullchain.pem" ]; then
-    openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
-        -keyout "${CERT_DIR}/privkey.pem" \
-        -out "${CERT_DIR}/fullchain.pem" \
-        -subj "/CN=${DOMAIN}" 2>/dev/null
-    echo "  Certificado temporal creado en ${CERT_DIR}"
-else
-    echo "  Certificado ya existe, omitiendo."
-fi
-
-# ── 4. Arrancar Nginx para el challenge ACME ──────────────────────────────────
-# Nginx sirve /.well-known/acme-challenge/ desde nginx/certbot/www/
-# Let's Encrypt accederá a http://${DOMAIN}/.well-known/acme-challenge/<token>
-echo "[4/6] Arrancando Nginx para el challenge ACME..."
-
-# --no-deps: arranca SOLO nginx, sin sus dependencias (mlflow, postgres, minio).
-# En este paso solo necesitamos que nginx sirva el challenge ACME en el puerto 80.
-# El stack completo arranca en el paso 6.
-docker compose up -d --no-deps nginx
-
-# Esperar a que Nginx responda en el puerto 80
-MAX_WAIT=30
-for i in $(seq 1 $MAX_WAIT); do
-    if curl -sf "http://localhost:80/" -o /dev/null 2>&1 || \
-       curl -sf "http://localhost:80/" -o /dev/null --max-time 2 2>&1; then
-        break
-    fi
-    # Nginx puede devolver 301 (redirect a HTTPS), eso también es señal de que está listo
-    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:80/" 2>/dev/null || true)
-    if [[ "$HTTP_CODE" == "301" || "$HTTP_CODE" == "200" ]]; then
-        break
-    fi
-    if [ "$i" -eq "$MAX_WAIT" ]; then
-        echo "ERROR: Nginx no respondió a tiempo. Revisa los logs:"
-        echo "  docker compose logs nginx"
-        exit 1
-    fi
-    sleep 2
-done
-echo "  Nginx listo"
-
-# ── 5. Obtener certificado real de Let's Encrypt ──────────────────────────────
-echo "[5/6] Obteniendo certificado Let's Encrypt para ${DOMAIN}..."
-echo "  (Asegúrate de que el DNS de ${DOMAIN} apunta a este servidor)"
-
-docker compose --profile certbot run --rm certbot certonly \
-    --webroot \
-    --webroot-path /var/www/certbot \
-    --domain "$DOMAIN" \
-    --email "$CERTBOT_EMAIL" \
-    --agree-tos \
-    --no-eff-email \
-    --force-renewal
-
-# Recargar Nginx para que use el certificado real
-docker compose exec nginx nginx -s reload
-echo "  Certificado obtenido y Nginx recargado"
-
-# ── 6. Arrancar el stack completo ─────────────────────────────────────────────
-echo "[6/6] Arrancando el stack completo..."
+# ── 3. Arrancar el stack completo ─────────────────────────────────────────────
+echo "[3/3] Arrancando el stack..."
 docker compose up -d --build
 
-# Esperar a que MLflow esté listo (puede tardar hasta 60s en aplicar migraciones)
+# Esperar a que MLflow esté listo
 echo "  Esperando a que MLflow esté disponible..."
 MAX_RETRIES=24
 for i in $(seq 1 $MAX_RETRIES); do
@@ -160,8 +96,11 @@ done
 
 echo ""
 echo "══════════════════════════════════════════════════════════════════"
-echo "  Setup completado con éxito"
+echo "  Setup completado"
 echo "══════════════════════════════════════════════════════════════════"
+echo ""
+echo "  Stack arrancado. Coolify gestionará el certificado TLS"
+echo "  automáticamente la primera vez que se acceda al dominio."
 echo ""
 echo "  UI de MLflow:  https://${DOMAIN}"
 echo "  Admin user:    ${MLFLOW_ADMIN_USERNAME}"

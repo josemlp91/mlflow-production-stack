@@ -1,0 +1,21 @@
+# Variables de entorno con credenciales reales — nunca subir al repositorio
+.env
+
+# Override local de Docker Compose — no debe llegar al servidor de producción
+# (expone el puerto 5000 directamente, solo válido en local)
+docker-compose.override.yml
+
+# Certificados TLS generados por Let's Encrypt y claves privadas
+certbot/
+
+# Directorios de datos de volúmenes Docker (generados en el servidor)
+data/
+
+# Backups de PostgreSQL
+backups/
+
+# Logs
+*.log
+
+# Ficheros temporales del sistema
+.DS_Store

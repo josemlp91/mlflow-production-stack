@@ -101,7 +101,9 @@ services:
         condition: service_healthy
     environment:
       # Backend store: PostgreSQL
-      MLFLOW_BACKEND_STORE_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      # Usar el nombre del contenedor (mlflow_postgres) en lugar del servicio (postgres) para evitar
+      # conflicto DNS con coolify-db en la red 'coolify', que también responde al hostname 'postgres'
+      MLFLOW_BACKEND_STORE_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@mlflow_postgres:5432/${POSTGRES_DB}
       # Credenciales de PostgreSQL para generar basic_auth.ini en el entrypoint
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}

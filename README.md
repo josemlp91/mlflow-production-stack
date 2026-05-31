@@ -8,7 +8,7 @@ Stack de producción para el servidor de tracking MLflow. Orquestado con Docker 
 Internet / CPD externo
         │
         ▼
-   Nginx :443  (TLS xapilopex.es)
+   Nginx :443  (TLS mlflow.pathologyprediction.es)
         │
         ▼
    MLflow :5000  ──────►  PostgreSQL :5432
@@ -56,7 +56,7 @@ chmod +x scripts/*.sh
 ./scripts/setup.sh
 ```
 
-La UI de MLflow estará disponible en `https://xapilopex.es`.
+La UI de MLflow estará disponible en `https://mlflow.pathologyprediction.es`.
 
 ## Operación diaria
 
@@ -119,7 +119,7 @@ docker compose exec minio mc mirror local/mlflow-artifacts ./backups/minio/
 ```bash
 pip install mlflow
 
-export MLFLOW_TRACKING_URI=https://xapilopex.es
+export MLFLOW_TRACKING_URI=https://mlflow.pathologyprediction.es
 export MLFLOW_TRACKING_USERNAME=<usuario>
 export MLFLOW_TRACKING_PASSWORD=<password>
 ```
@@ -127,7 +127,7 @@ export MLFLOW_TRACKING_PASSWORD=<password>
 ```python
 import mlflow
 
-mlflow.set_tracking_uri("https://xapilopex.es")
+mlflow.set_tracking_uri("https://mlflow.pathologyprediction.es")
 mlflow.set_experiment("mi-experimento")
 
 with mlflow.start_run():

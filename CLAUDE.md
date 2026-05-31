@@ -12,7 +12,7 @@ Production deployment of an MLflow tracking server using Docker Compose. The sta
 Internet / External CPD
         │
         ▼
-   Nginx :443  (TLS — xapilopex.es)
+   Nginx :443  (TLS — mlflow.pathologyprediction.es)
         │
         ▼
    MLflow :5000  ──────►  PostgreSQL :5432
@@ -66,7 +66,7 @@ Only Nginx exposes ports to the outside world (80 and 443). All other services c
 
 - TLS certificates are in `./certbot/conf/` (bind-mounted, gitignored). Nginx and Certbot both mount this directory.
 - All credentials are in `.env` (gitignored). Never hardcode secrets.
-- The domain `xapilopex.es` is hardcoded in `nginx/conf.d/mlflow.conf`. If the domain changes, update that file and re-run `setup.sh`.
+- The domain `mlflow.pathologyprediction.es` is hardcoded in `nginx/conf.d/mlflow.conf`. If the domain changes, update that file and re-run `setup.sh`.
 - Nginx `client_max_body_size` is set to `512m` to allow uploading large ML artifacts.
 - Proxy timeouts are set to `600s` to handle long-running training jobs reporting metrics.
 
@@ -98,7 +98,7 @@ docker compose logs -f [service]
 ## Connecting from an External CPD
 
 ```bash
-export MLFLOW_TRACKING_URI=https://xapilopex.es
+export MLFLOW_TRACKING_URI=https://mlflow.pathologyprediction.es
 export MLFLOW_TRACKING_USERNAME=<username>
 export MLFLOW_TRACKING_PASSWORD=<password>
 ```
@@ -109,7 +109,7 @@ All required variables are documented in `.env.example`. Key ones:
 
 | Variable              | Purpose                                              |
 |-----------------------|------------------------------------------------------|
-| `DOMAIN`              | Public domain (xapilopex.es)                         |
+| `DOMAIN`              | Public domain (mlflow.pathologyprediction.es)                         |
 | `CERTBOT_EMAIL`       | Let's Encrypt notification email                     |
 | `POSTGRES_*`          | PostgreSQL credentials                               |
 | `MLFLOW_ADMIN_*`      | Initial MLflow admin user                            |

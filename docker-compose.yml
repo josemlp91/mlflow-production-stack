@@ -7,13 +7,12 @@
 #   minio-init  — Contenedor de inicialización: crea el bucket en el primer arranque
 #   mlflow      — Servidor de tracking con autenticación nativa multi-usuario
 #
-# TLS y routing: gestionados por Coolify (Traefik). No se incluye nginx ni certbot.
-# Los labels de Traefik en el servicio mlflow indican a Coolify qué dominio
-# enrutar y qué certificado TLS obtener automáticamente.
+# TLS y routing: gestionados por Coolify. El dominio, certificado TLS y proxy
+# inverso se configuran en la UI de Coolify — no se necesitan labels de Traefik.
 #
 # Uso:
-#   Primera vez:    ./scripts/setup.sh
-#   Arrancar stack: docker compose up -d
+#   Despliegue:     Conectar este repositorio en Coolify como Docker Compose
+#   Local:          docker compose -f docker-compose.yml -f docker-compose.override.yml up -d
 #   Ver logs:       docker compose logs -f
 #   Parar stack:    docker compose down
 # ──────────────────────────────────────────────────────────────────────────────
@@ -100,43 +99,22 @@ services:
       minio:
         condition: service_healthy
     environment:
-      # Backend store: PostgreSQL
-      # Usar el nombre del contenedor (mlflow_postgres) en lugar del servicio (postgres) para evitar
-      # conflicto DNS con coolify-db en la red 'coolify', que también responde al hostname 'postgres'
+      # Usar el nombre del contenedor (mlflow_postgres) para evitar conflicto DNS
+      # con coolify-db, que también responde al hostname genérico 'postgres'
       MLFLOW_BACKEND_STORE_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@mlflow_postgres:5432/${POSTGRES_DB}
-      # Credenciales de PostgreSQL para generar basic_auth.ini en el entrypoint
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-      # Almacenamiento de artefactos: MinIO (protocolo S3)
       MLFLOW_ARTIFACTS_DESTINATION: s3://${MINIO_BUCKET}
       MINIO_BUCKET: ${MINIO_BUCKET}
       MLFLOW_S3_ENDPOINT_URL: http://minio:9000
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
-      # Autenticación nativa MLflow
       MLFLOW_ADMIN_USERNAME: ${MLFLOW_ADMIN_USERNAME}
       MLFLOW_ADMIN_PASSWORD: ${MLFLOW_ADMIN_PASSWORD}
-      # Clave secreta de Flask para firmar cookies de sesión de la UI
       MLFLOW_FLASK_SERVER_SECRET_KEY: ${MLFLOW_SECRET_KEY}
     networks:
       - mlflow_net
-      # Conectar a la red de Coolify para que Traefik pueda enrutar el tráfico
-      - coolify
-    labels:
-      # Activar Traefik para este servicio
-      - traefik.enable=true
-      # Red que Traefik debe usar para alcanzar el contenedor (evita ambigüedad al estar en dos redes)
-      - traefik.docker.network=coolify
-      # Enrutar el dominio a este contenedor
-      - traefik.http.routers.mlflow.rule=Host(`${DOMAIN}`)
-      # Usar el entrypoint HTTPS de Traefik (puerto 443)
-      - traefik.http.routers.mlflow.entrypoints=https
-      # Activar TLS con el resolver de Let's Encrypt de Coolify
-      - traefik.http.routers.mlflow.tls=true
-      - traefik.http.routers.mlflow.tls.certresolver=letsencrypt
-      # Puerto interno al que Traefik hace proxy dentro del contenedor
-      - traefik.http.services.mlflow.loadbalancer.server.port=5000
 
 # ── Volúmenes persistentes ──────────────────────────────────────────────────
 volumes:
@@ -147,9 +125,6 @@ volumes:
 
 # ── Redes ───────────────────────────────────────────────────────────────────
 networks:
-  # Red interna del stack (postgres, minio y mlflow se comunican aquí)
+  # Red interna del stack — postgres, minio y mlflow se comunican aquí
   mlflow_net:
     driver: bridge
-  # Red externa de Coolify — Traefik descubre los contenedores conectados a ella
-  coolify:
-    external: true

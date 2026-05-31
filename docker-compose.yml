@@ -22,7 +22,6 @@ services:
   # ── PostgreSQL ──────────────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
-    container_name: mlflow_postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -43,7 +42,6 @@ services:
   # ── MinIO (almacenamiento de artefactos) ────────────────────────────────────
   minio:
     image: minio/minio:RELEASE.2025-04-22T22-12-26Z
-    container_name: mlflow_minio
     restart: unless-stopped
     # :9000 API S3 (usado internamente por MLflow)
     # :9001 Consola web de administración de MinIO
@@ -67,7 +65,6 @@ services:
   # si el bucket ya existe en arranques posteriores, no falla.
   minio-init:
     image: minio/mc:latest
-    container_name: mlflow_minio_init
     depends_on:
       minio:
         condition: service_healthy
@@ -91,7 +88,6 @@ services:
       context: ./mlflow
       dockerfile: Dockerfile
     image: mlflow_server:local
-    container_name: mlflow_server
     restart: unless-stopped
     depends_on:
       postgres:
@@ -99,9 +95,7 @@ services:
       minio:
         condition: service_healthy
     environment:
-      # Usar el nombre del contenedor (mlflow_postgres) para evitar conflicto DNS
-      # con coolify-db, que también responde al hostname genérico 'postgres'
-      MLFLOW_BACKEND_STORE_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@mlflow_postgres:5432/${POSTGRES_DB}
+      MLFLOW_BACKEND_STORE_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}

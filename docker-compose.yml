@@ -126,6 +126,8 @@ services:
     labels:
       # Activar Traefik para este servicio
       - traefik.enable=true
+      # Red que Traefik debe usar para alcanzar el contenedor (evita ambigüedad al estar en dos redes)
+      - traefik.docker.network=coolify
       # Enrutar el dominio a este contenedor
       - traefik.http.routers.mlflow.rule=Host(`${DOMAIN}`)
       # Usar el entrypoint HTTPS de Traefik (puerto 443)

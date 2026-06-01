@@ -8,7 +8,7 @@ Stack de producción para el servidor de tracking MLflow. Orquestado con Docker 
 Internet / CPD externo
         │
         ▼
-   Coolify :443  (TLS mlflow.pathologyprediction.es)
+   Coolify :443  (TLS — tu dominio)
         │
         ▼
    MLflow :5000  ──────►  PostgreSQL :5432
@@ -55,7 +55,7 @@ El setup valida los prerequisitos, comprueba que `.env` esté correctamente conf
 
 La imagen de MLflow se construye automáticamente vía GitHub Actions y se publica en GitHub Container Registry. Coolify simplemente hace pull de la imagen — no necesita hacer build del Dockerfile. Para desarrollo local, `make up` usa `docker-compose.dev.yml` que añade el build local.
 
-La UI de MLflow estará disponible en `https://mlflow.pathologyprediction.es`.
+La UI de MLflow estará disponible en `https://<DOMAIN>` (el valor de la variable `DOMAIN` en tu `.env`).
 
 ## Operación diaria — vía Makefile
 
@@ -109,12 +109,12 @@ make user-del USER=bruno
 make user-add USER=carlos PASS=clave_segura
 
 # 2. El admin asigna permisos en la UI de MLflow:
-#    https://mlflow.pathologyprediction.es
+#    https://<DOMAIN>
 #    → Experimentos → seleccionar experimento → Permissions → Add user
 #    → carlos: READ / EDIT / MANAGE
 
 # 3. Carlos configura su cliente y ya puede trabajar
-export MLFLOW_TRACKING_URI=https://mlflow.pathologyprediction.es
+export MLFLOW_TRACKING_URI=https://<DOMAIN>
 export MLFLOW_TRACKING_USERNAME=carlos
 export MLFLOW_TRACKING_PASSWORD=clave_segura
 
@@ -188,7 +188,7 @@ Cada usuario usa sus propias credenciales (ver [Gestión de usuarios](#gestión-
 pip install mlflow
 
 # Credenciales del usuario (creado previamente con make user-add)
-export MLFLOW_TRACKING_URI=https://mlflow.pathologyprediction.es
+export MLFLOW_TRACKING_URI=https://<DOMAIN>
 export MLFLOW_TRACKING_USERNAME=carlos
 export MLFLOW_TRACKING_PASSWORD=clave_segura
 ```
@@ -198,7 +198,7 @@ export MLFLOW_TRACKING_PASSWORD=clave_segura
 ```python
 import mlflow
 
-mlflow.set_tracking_uri("https://mlflow.pathologyprediction.es")
+mlflow.set_tracking_uri("https://<DOMAIN>")
 
 # El experimento se crea automáticamente si no existe.
 # El usuario necesita permiso EDIT para registrar runs en él.
@@ -244,7 +244,7 @@ print(f"Run registrado: {mlflow.active_run().info.run_id}")
 ```python
 import mlflow
 
-mlflow.set_tracking_uri("https://mlflow.pathologyprediction.es")
+mlflow.set_tracking_uri("https://<DOMAIN>")
 
 client = mlflow.tracking.MlflowClient()
 
@@ -274,7 +274,7 @@ if runs:
 ```python
 import mlflow
 
-mlflow.set_tracking_uri("https://mlflow.pathologyprediction.es")
+mlflow.set_tracking_uri("https://<DOMAIN>")
 
 # Cargar la última versión en producción
 model = mlflow.pyfunc.load_model("models:/breast-cancer-classifier/Production")
@@ -286,7 +286,7 @@ prediction = model.predict(sample)
 print(f"Predicción: {prediction}")
 ```
 
-Consulta los experimentos, runs y modelos registrados en la UI: `https://mlflow.pathologyprediction.es`.
+Consulta los experimentos, runs y modelos registrados en la UI: `https://<DOMAIN>`.
 
 ## Actualizar el stack
 
@@ -305,7 +305,7 @@ Añade estas variables en **Settings → Secrets and variables → Actions** del
 | Variable | Tipo | Descripción |
 |---|---|---|
 | `COOLIFY_DEPLOY_UUID` | Variable | UUID del deployment en Coolify (en la URL del servicio) |
-| `COOLIFY_URL` | Variable | URL base de la API de Coolify (ej: `https://coolify.xapilopex.es`) |
+| `COOLIFY_URL` | Variable | URL base de la API de Coolify (ej: `https://coolify.tu-servidor.com`) |
 | `COOLIFY_TOKEN` | Secret | Token de API de Coolify (Settings → API Tokens) |
 
 Si no se configuran `COOLIFY_DEPLOY_UUID` y `COOLIFY_URL`, el paso de deploy se salta y Coolify deberá detectar el cambio por polling o webhook propio.

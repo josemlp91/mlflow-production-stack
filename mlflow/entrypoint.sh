@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 
+echo "ECHO - MLflow Tracking Server entrypoint script starting..."
+
 # ── Validar variables de entorno requeridas ───────────────────────────────────
 for var in MLFLOW_BACKEND_STORE_URI MINIO_BUCKET MLFLOW_ADMIN_USERNAME MLFLOW_ADMIN_PASSWORD; do
     eval val=\$$var

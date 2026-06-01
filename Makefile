@@ -247,3 +247,12 @@ init-env:   ## Copy .env.example → .env if missing
 	else \
 		echo ".env already exists, skipping."; \
 	fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Linting & CI
+# ═══════════════════════════════════════════════════════════════════════════════
+
+lint:       ## Run ShellCheck on all scripts
+	@command -v shellcheck >/dev/null 2>&1 || { echo "ERROR: shellcheck not installed. Install: apt install shellcheck"; exit 1; }
+	shellcheck --severity=warning scripts/*.sh
+	@echo "OK"

@@ -60,3 +60,26 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # ── Trigger Coolify deployment ────────────────────────────────────────────────
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: ${{ vars.COOLIFY_DEPLOY_UUID != '' && vars.COOLIFY_URL != '' }}
+    steps:
+      - name: Trigger Coolify deployment
+        run: |
+          echo "→ Disparando deploy en Coolify (uuid=${{ vars.COOLIFY_DEPLOY_UUID }})..."
+          HTTP_CODE=$(curl -s -o /tmp/coolify-deploy.json -w "%{http_code}" \
+            -X GET \
+            "${{ vars.COOLIFY_URL }}/api/v1/deploy?uuid=${{ vars.COOLIFY_DEPLOY_UUID }}&force=false" \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+            --max-time 30)
+          echo "← Coolify respondió HTTP ${HTTP_CODE}"
+          cat /tmp/coolify-deploy.json
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "✓ Deploy disparado correctamente"
+          else
+            echo "! Coolify devolvió código ${HTTP_CODE} — revisa el webhook"
+            exit 1
+          fi

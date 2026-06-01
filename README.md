@@ -296,7 +296,19 @@ make build                   # reconstruir imagen MLflow localmente
 make up
 ```
 
-En producción, cada push a `main` dispara el workflow de GitHub Actions que construye y publica la nueva imagen en GHCR. Coolify detecta el cambio y redespliega automáticamente.
+En producción, cada push a `main` dispara el workflow de GitHub Actions: shellcheck → build → push a GHCR → notificar a Coolify para redesplegar automáticamente.
+
+### Configurar el auto-deploy en Coolify
+
+Añade estas variables en **Settings → Secrets and variables → Actions** del repositorio:
+
+| Variable | Tipo | Descripción |
+|---|---|---|
+| `COOLIFY_DEPLOY_UUID` | Variable | UUID del deployment en Coolify (en la URL del servicio) |
+| `COOLIFY_URL` | Variable | URL base de la API de Coolify (ej: `https://coolify.xapilopex.es`) |
+| `COOLIFY_TOKEN` | Secret | Token de API de Coolify (Settings → API Tokens) |
+
+Si no se configuran `COOLIFY_DEPLOY_UUID` y `COOLIFY_URL`, el paso de deploy se salta y Coolify deberá detectar el cambio por polling o webhook propio.
 
 ## Estructura del repositorio
 

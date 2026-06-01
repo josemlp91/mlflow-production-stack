@@ -32,4 +32,5 @@ exec mlflow server \
     --port 5000 \
     --backend-store-uri "${MLFLOW_BACKEND_STORE_URI}" \
     --artifacts-destination "s3://${MINIO_BUCKET}" \
-    --app-name basic-auth
+    --app-name basic-auth \
+    --gunicorn-opts "--timeout 120 --graceful-timeout 60"

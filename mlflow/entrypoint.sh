@@ -8,10 +8,16 @@
 # ──────────────────────────────────────────────────────────────────────────────
 set -e
 
+# ── Validar variables de entorno requeridas ───────────────────────────────────
+for var in MLFLOW_BACKEND_STORE_URI MINIO_BUCKET MLFLOW_ADMIN_USERNAME MLFLOW_ADMIN_PASSWORD; do
+    eval val=\$$var
+    if [ -z "$val" ]; then
+        echo "ERROR: required environment variable $var is not set" >&2
+        exit 1
+    fi
+done
+
 # ── Generar configuración de autenticación ────────────────────────────────────
-# MLflow lee este fichero al arrancar para inicializar el sistema de usuarios.
-# El admin_password solo se usa en el primer arranque (cuando el usuario aún
-# no existe en la base de datos); después se ignora y prevalece el de la BD.
 cat > /tmp/basic_auth.ini << EOF
 [mlflow]
 default_permission = READ
@@ -23,14 +29,12 @@ EOF
 export MLFLOW_AUTH_CONFIG_PATH=/tmp/basic_auth.ini
 
 # ── Arrancar el servidor MLflow ──────────────────────────────────────────────
-# El servidor inicializa el esquema de BD y aplica migraciones internamente.
-# No usar "mlflow db upgrade" en instalaciones nuevas: causa conflictos de orden
-# en las migraciones de alembic cuando la BD está vacía.
 echo "Starting MLflow tracking server..."
 exec mlflow server \
     --host 0.0.0.0 \
     --port 5000 \
+    --workers 1 \
     --backend-store-uri "${MLFLOW_BACKEND_STORE_URI}" \
     --artifacts-destination "s3://${MINIO_BUCKET}" \
     --app-name basic-auth \
-    --gunicorn-opts "--timeout 120 --graceful-timeout 60"
+    --gunicorn-opts "--timeout 120 --graceful-timeout 60 --log-level debug"

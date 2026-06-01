@@ -1,11 +1,4 @@
 #!/bin/sh
-# ──────────────────────────────────────────────────────────────────────────────
-# entrypoint.sh — Arranque del servidor MLflow con autenticación nativa
-#
-# Genera el fichero de configuración de autenticación a partir de las
-# variables de entorno, ejecuta las migraciones de base de datos y arranca
-# el servidor. Este script se ejecuta cada vez que el contenedor arranca.
-# ──────────────────────────────────────────────────────────────────────────────
 set -e
 
 # ── Validar variables de entorno requeridas ───────────────────────────────────
@@ -16,6 +9,28 @@ for var in MLFLOW_BACKEND_STORE_URI MINIO_BUCKET MLFLOW_ADMIN_USERNAME MLFLOW_AD
         exit 1
     fi
 done
+
+# ── Esperar a que PostgreSQL esté listo ───────────────────────────────────────
+# El módulo basic-auth conecta a la BD durante la inicialización del worker.
+# Si PostgreSQL no está listo en ese momento, el worker falla en el arranque.
+echo "Waiting for PostgreSQL..."
+python3 << 'PYEOF'
+import time, sys, os
+import psycopg2
+
+uri = os.environ["MLFLOW_BACKEND_STORE_URI"]
+for i in range(30):
+    try:
+        conn = psycopg2.connect(uri)
+        conn.close()
+        print("PostgreSQL is ready", flush=True)
+        sys.exit(0)
+    except Exception as e:
+        print(f"Waiting for PostgreSQL ({i+1}/30): {e}", flush=True)
+        time.sleep(2)
+print("ERROR: PostgreSQL not available after 60 seconds", flush=True)
+sys.exit(1)
+PYEOF
 
 # ── Generar configuración de autenticación ────────────────────────────────────
 cat > /tmp/basic_auth.ini << EOF
@@ -37,4 +52,4 @@ exec mlflow server \
     --backend-store-uri "${MLFLOW_BACKEND_STORE_URI}" \
     --artifacts-destination "s3://${MINIO_BUCKET}" \
     --app-name basic-auth \
-    --gunicorn-opts "--timeout 120 --graceful-timeout 60 --log-level debug"
+    --gunicorn-opts "--timeout 120 --graceful-timeout 60 --capture-output --preload --log-level debug"

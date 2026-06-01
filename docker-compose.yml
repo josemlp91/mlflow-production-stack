@@ -10,9 +10,13 @@
 # TLS y routing: gestionados por Coolify. El dominio, certificado TLS y proxy
 # inverso se configuran en la UI de Coolify — no se necesitan labels de Traefik.
 #
+# La imagen de MLflow se construye vía GitHub Actions y se publica en GHCR.
+# Para desarrollo local usa: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#
 # Uso:
 #   Despliegue:     Conectar este repositorio en Coolify como Docker Compose
-#   Local:          docker compose -f docker-compose.yml -f docker-compose.override.yml up -d
+#                    (Coolify usará la imagen prebuilt de GHCR, no hará build)
+#   Local (build):  docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 #   Ver logs:       docker compose logs -f
 #   Parar stack:    docker compose down
 # ──────────────────────────────────────────────────────────────────────────────
@@ -84,10 +88,9 @@ services:
 
   # ── MLflow Tracking Server ──────────────────────────────────────────────────
   mlflow:
-    build:
-      context: ./mlflow
-      dockerfile: Dockerfile
-    image: mlflow_server:local
+    # Imagen prebuilt desde GitHub Container Registry (CI/CD).
+    # Usar ${MLFLOW_IMAGE} desde .env para apuntar a una versión concreta.
+    image: ${MLFLOW_IMAGE:-mlflow_server:dev}
     restart: unless-stopped
     depends_on:
       postgres:

@@ -1,0 +1,16 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# docker-compose.dev.yml — Override de desarrollo local
+#
+# Añade build local de la imagen MLflow para desarrollo.
+# Usar junto con docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#
+# En producción (Coolify) solo se usa docker-compose.yml, que tira de la
+# imagen prebuilt en GitHub Container Registry.
+# ──────────────────────────────────────────────────────────────────────────────
+
+services:
+  mlflow:
+    build:
+      context: ./mlflow
+      dockerfile: Dockerfile
